@@ -6,7 +6,7 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { ConfidenceBadge, WeeklyBadge, SampleDataBadge } from "@/components/badges";
 import { MOCK_ACTIVITIES, MOCK_WEEKLY } from "@/lib/mock-data";
 import { fmtMoney, fmtTime, fmtDate } from "@/lib/format";
-import { effectiveMultiplier, expectedPayout } from "@/lib/engine";
+import { applyWeekly, expectedPayout } from "@/lib/engine";
 import type { Activity } from "@/lib/types";
 
 export const Route = createFileRoute("/activities")({
@@ -50,20 +50,20 @@ function Activities() {
       if (active.has("crew") && a.maxPlayers < 2) return false;
       if (active.has("active") && a.incomeType !== "active") return false;
       if (active.has("passive") && a.incomeType !== "passive") return false;
-      if (active.has("u30") && a.completionTime > 30) return false;
-      if (active.has("u60") && a.completionTime > 60) return false;
+      if (active.has("u30") && a.completionMinutes > 30) return false;
+      if (active.has("u60") && a.completionMinutes > 60) return false;
       if (active.has("high") && (a.minPayout + a.maxPayout) / 2 < 200000) return false;
       if (active.has("low-risk") && a.risk !== "low") return false;
-      if (active.has("nosetup") && a.setupTime > 0) return false;
-      if (active.has("boosted") && effectiveMultiplier(a, MOCK_WEEKLY) <= 1) return false;
+      if (active.has("nosetup") && a.setupMinutes > 0) return false;
+      if (active.has("boosted") && applyWeekly(a, MOCK_WEEKLY) <= 1) return false;
       return true;
     });
-    const ppm = (a: Activity) => expectedPayout(a, MOCK_WEEKLY) / Math.max(a.completionTime + a.setupTime, 1);
+    const ppm = (a: Activity) => expectedPayout(a, MOCK_WEEKLY) / Math.max(a.completionMinutes + a.setupMinutes, 1);
     const riskN = (a: Activity) => a.risk === "low" ? 0 : a.risk === "medium" ? 1 : 2;
     return [...filtered].sort((a, b) => {
       switch (sort) {
         case "payout": return expectedPayout(b, MOCK_WEEKLY) - expectedPayout(a, MOCK_WEEKLY);
-        case "duration": return a.completionTime - b.completionTime;
+        case "duration": return a.completionMinutes - b.completionMinutes;
         case "risk": return riskN(a) - riskN(b);
         case "verified": return +new Date(b.lastVerified) - +new Date(a.lastVerified);
         default: return ppm(b) - ppm(a);
@@ -101,8 +101,8 @@ function Activities() {
 
       <div className="px-6 pb-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((a) => {
-          const mult = effectiveMultiplier(a, MOCK_WEEKLY);
-          const ppm = expectedPayout(a, MOCK_WEEKLY) / Math.max(a.completionTime + a.setupTime, 1);
+          const mult = applyWeekly(a, MOCK_WEEKLY);
+          const ppm = expectedPayout(a, MOCK_WEEKLY) / Math.max(a.completionMinutes + a.setupMinutes, 1);
           return (
             <motion.button
               layout
@@ -120,7 +120,7 @@ function Activities() {
                 <WeeklyBadge multiplier={mult} />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <Stat icon={Clock} v={fmtTime(a.completionTime)} />
+                <Stat icon={Clock} v={fmtTime(a.completionMinutes)} />
                 <Stat icon={Users} v={`${a.minPlayers}–${a.maxPlayers}`} />
                 <Stat icon={Zap} v={`${Math.round(ppm).toLocaleString()}/min`} />
                 <Stat icon={ShieldAlert} v={a.risk} />
@@ -159,8 +159,8 @@ function Drawer({ activity, onClose }: { activity: Activity; onClose: () => void
           </div>
           <p className="text-sm text-text-secondary">{activity.description}</p>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <Info label="Duration" v={fmtTime(activity.completionTime)} />
-            <Info label="Setup" v={fmtTime(activity.setupTime)} />
+            <Info label="Duration" v={fmtTime(activity.completionMinutes)} />
+            <Info label="Setup" v={fmtTime(activity.setupMinutes)} />
             <Info label="Payout range" v={`${fmtMoney(activity.minPayout)}–${fmtMoney(activity.maxPayout)}`} />
             <Info label="Players" v={`${activity.minPlayers}–${activity.maxPlayers}`} />
             <Info label="Risk" v={activity.risk} />
