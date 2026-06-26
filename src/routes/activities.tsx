@@ -6,7 +6,10 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { ConfidenceBadge, WeeklyBadge, SampleDataBadge } from "@/components/badges";
 import { MOCK_ACTIVITIES, MOCK_WEEKLY } from "@/lib/mock-data";
 import { fmtMoney, fmtTime, fmtDate } from "@/lib/format";
-import { applyWeekly, expectedPayout } from "@/lib/engine";
+import { applyWeekly } from "@/lib/engine";
+
+const expectedPayout = (a: Activity, weekly: typeof MOCK_WEEKLY) =>
+  ((a.minPayout + a.maxPayout) / 2) * applyWeekly(a, weekly);
 import type { Activity } from "@/lib/types";
 
 export const Route = createFileRoute("/activities")({
@@ -48,8 +51,8 @@ function Activities() {
       if (q && !a.name.toLowerCase().includes(q.toLowerCase())) return false;
       if (active.has("solo") && a.minPlayers > 1) return false;
       if (active.has("crew") && a.maxPlayers < 2) return false;
-      if (active.has("active") && a.incomeType !== "active") return false;
-      if (active.has("passive") && a.incomeType !== "passive") return false;
+      if (active.has("active") && a.isPassive) return false;
+      if (active.has("passive") && !a.isPassive) return false;
       if (active.has("u30") && a.completionMinutes > 30) return false;
       if (active.has("u60") && a.completionMinutes > 60) return false;
       if (active.has("high") && (a.minPayout + a.maxPayout) / 2 < 200000) return false;
@@ -164,7 +167,7 @@ function Drawer({ activity, onClose }: { activity: Activity; onClose: () => void
             <Info label="Payout range" v={`${fmtMoney(activity.minPayout)}–${fmtMoney(activity.maxPayout)}`} />
             <Info label="Players" v={`${activity.minPlayers}–${activity.maxPlayers}`} />
             <Info label="Risk" v={activity.risk} />
-            <Info label="Income" v={activity.incomeType} />
+            <Info label="Income" v={activity.isPassive ? "passive" : "active"} />
             <Info label="Cooldown" v={`${activity.cooldownMinutes} min`} />
             <Info label="Last verified" v={fmtDate(activity.lastVerified)} />
           </div>
