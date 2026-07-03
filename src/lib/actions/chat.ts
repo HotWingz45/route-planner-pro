@@ -55,10 +55,17 @@ interface AnthropicTextBlock {
 type AnthropicContentBlock = AnthropicToolUseBlock | AnthropicTextBlock;
 
 export const sendChatMessage = createServerFn({ method: "POST" })
-  .validator((data: unknown) => chatInputSchema.parse(data))
+  .inputValidator((data: unknown) => chatInputSchema.parse(data))
   .handler(async ({ data }) => {
+    const baseUrl = (process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com").replace(
+      /\/$/,
+      "",
+    );
+    const model = process.env.CHAT_MODEL ?? "claude-sonnet-5";
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    // A key is only required for the hosted Anthropic API — local
+    // Anthropic-compatible endpoints (e.g. Ollama) ignore it.
+    if (!apiKey && baseUrl.includes("api.anthropic.com")) {
       throw new Error("ANTHROPIC_API_KEY is not configured on the server. See .env.example.");
     }
 
@@ -156,16 +163,18 @@ export const sendChatMessage = createServerFn({ method: "POST" })
 
     const contextNote = `Known player state right now: balance=$${currentProfile.currentBalance}, sessionLength=${currentProfile.sessionLength}min, playStyle=${currentProfile.playStyle}, risk=${currentProfile.preferredRisk}, goal="${currentProfile.goal.label}" (target $${currentProfile.goal.targetAmount}). Only include fields in your tool call that the player is setting or changing in THIS message — omit fields you're not updating.`;
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const anthropicRes = await fetch(`${baseUrl}/v1/messages`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
+        "x-api-key": apiKey ?? "ollama",
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 700,
+        model,
+        // Local thinking models (qwen3 etc.) spend output tokens on reasoning
+        // before the tool call, so this cap must leave room for both.
+        max_tokens: 1200,
         system: `${SYSTEM_PROMPT}\n\n${contextNote}`,
         messages: anthropicMessages,
         tools: [
@@ -213,7 +222,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
 
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.text();
-      throw new Error(`Anthropic API error (${anthropicRes.status}): ${errBody}`);
+      throw new Error(`Chat model API error (${anthropicRes.status}): ${errBody}`);
     }
 
     const anthropicData = (await anthropicRes.json()) as { content: AnthropicContentBlock[] };
