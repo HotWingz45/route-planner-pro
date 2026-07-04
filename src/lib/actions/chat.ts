@@ -14,6 +14,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getServerSupabaseForUser, getServerSupabaseAdmin } from "../supabase/server";
+import { hasActiveAccess } from "../access";
 import { buildRoute } from "../engine";
 import { mapActivity, mapWeeklyModifier, buildPlayerProfile } from "../supabase/mappers";
 import type { Database } from "../supabase/database.types";
@@ -94,10 +95,19 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     // 2. Enforce free-tier weekly AI conversation limit.
     const { data: profile, error: profileErr } = await admin
       .from("profiles")
-      .select("subscription_tier, ai_conversations_used_this_week, ai_conversations_reset_at")
+      .select(
+        "subscription_tier, launch_pass_expires_at, ai_conversations_used_this_week, ai_conversations_reset_at",
+      )
       .eq("id", userId)
       .single();
     if (profileErr) throw profileErr;
+
+    // Central access check — also treats a launch_pass that expired since the
+    // last nightly downgrade job as free tier.
+    const paidAccess = hasActiveAccess({
+      subscriptionTier: profile.subscription_tier,
+      launchPassExpiresAt: profile.launch_pass_expires_at,
+    });
 
     const now = new Date();
     let usedThisWeek = profile.ai_conversations_used_this_week;
@@ -111,7 +121,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
         })
         .eq("id", userId);
     }
-    if (profile.subscription_tier === "free" && usedThisWeek >= 3) {
+    if (!paidAccess && usedThisWeek >= 3) {
       return {
         reply:
           "You've used your 3 free AI conversations this week. Upgrade to Pro for unlimited AI route planning, or use the manual planner — it's still free and unlimited.",

@@ -286,6 +286,12 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["community_submissions"]["Row"]>;
         Relationships: [];
       };
+      founding_pro_slots: {
+        Row: { id: number; claimed: number; cap: number };
+        Insert: Partial<{ id: number; claimed: number; cap: number }> & { id: number };
+        Update: Partial<{ id: number; claimed: number; cap: number }>;
+        Relationships: [];
+      };
       admin_change_log: {
         Row: {
           id: string;
@@ -307,6 +313,13 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      claim_founding_slot: { Args: Record<string, never>; Returns: number | null };
+      purchase_tier: {
+        Args: { p_user_id: string; p_tier: string };
+        Returns: { status: string; slot?: number; expires_at?: string };
+      };
+      expire_launch_passes: { Args: Record<string, never>; Returns: number };
+    };
   };
 }
