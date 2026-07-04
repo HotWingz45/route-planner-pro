@@ -64,9 +64,19 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     const model = process.env.CHAT_MODEL ?? "claude-sonnet-5";
     const apiKey = process.env.ANTHROPIC_API_KEY;
     // A key is only required for the hosted Anthropic API — local
-    // Anthropic-compatible endpoints (e.g. Ollama) ignore it.
-    if (!apiKey && baseUrl.includes("api.anthropic.com")) {
-      throw new Error("ANTHROPIC_API_KEY is not configured on the server. See .env.example.");
+    // Anthropic-compatible endpoints (e.g. Ollama) ignore it. When neither is
+    // configured, degrade gracefully instead of erroring so the rest of the
+    // app stays fully usable on deployments without an AI budget.
+    const aiConfigured =
+      !baseUrl.includes("api.anthropic.com") || (apiKey && apiKey.startsWith("sk-ant-") && !apiKey.includes("your-key"));
+    if (!aiConfigured) {
+      return {
+        reply:
+          "The AI planner isn't enabled on this server yet — but the manual planner does everything the AI does, free and unlimited. Head to the Planner tab to build your route.",
+        recommendation: null,
+        conversationId: data.conversationId ?? null,
+        limitReached: false as const,
+      };
     }
 
     // 1. Verify caller identity via their own Supabase session token (RLS-scoped client).
