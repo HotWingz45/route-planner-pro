@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sidebar, MobileNav } from "./sidebar";
+import { ChatBar } from "./chat-bar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1 min-w-0 pb-20 md:pb-0">{children}</main>
         <Footer />
       </div>
+      <ChatBar />
     </div>
   );
 }
@@ -17,7 +19,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 export function Footer() {
   return (
     <footer className="border-t border-border px-6 py-6 text-center text-[11px] text-text-muted">
-      ScorePath is an independent, unofficial companion platform and is not affiliated with or endorsed by Rockstar Games or Take-Two Interactive.
+      ScorePath is an independent, unofficial companion platform and is not affiliated with or
+      endorsed by Rockstar Games or Take-Two Interactive.
     </footer>
   );
 }

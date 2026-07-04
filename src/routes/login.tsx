@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { signIn } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/queries";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Log in — ScorePath" }] }),
@@ -13,40 +15,97 @@ function Login() {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const submit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Welcome back");
-    nav({ to: "/dashboard" });
+    if (!isSupabaseConfigured) {
+      toast.message("Demo mode — Supabase isn't configured yet");
+      nav({ to: "/dashboard" });
+      return;
+    }
+    setLoading(true);
+    try {
+      await signIn(email, pw);
+      toast.success("Welcome back");
+      nav({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
     <AuthShell title="Welcome back" subtitle="Log in to continue planning your route.">
       <form onSubmit={submit} className="space-y-4">
         <Field label="Email">
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="auth-input" placeholder="you@scorepath.gg" />
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="auth-input"
+            placeholder="you@scorepath.gg"
+          />
         </Field>
         <Field label="Password">
-          <input type="password" required value={pw} onChange={(e) => setPw(e.target.value)} className="auth-input" placeholder="••••••••" />
+          <input
+            type="password"
+            required
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            className="auth-input"
+            placeholder="••••••••"
+          />
         </Field>
-        <button type="submit" className="w-full rounded-xl gradient-primary px-4 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-glow-pink)] hover:opacity-95 transition active:scale-[0.98]">
-          Log in
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl gradient-primary px-4 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-glow-pink)] hover:opacity-95 transition active:scale-[0.98] disabled:opacity-70 inline-flex items-center justify-center gap-2"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log in"}
         </button>
-        <button type="button" onClick={() => { toast.message("Demo mode active"); nav({ to: "/dashboard" }); }} className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:bg-surface-hover transition">
+        <button
+          type="button"
+          onClick={() => {
+            toast.message("Demo mode active");
+            nav({ to: "/dashboard" });
+          }}
+          className="w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:bg-surface-hover transition"
+        >
           Continue as demo
         </button>
         <div className="text-center text-xs text-text-muted">
           New here?{" "}
-          <Link to="/signup" className="text-neon-pink hover:underline">Create an account</Link>
+          <Link to="/signup" className="text-neon-pink hover:underline">
+            Create an account
+          </Link>
         </div>
       </form>
     </AuthShell>
   );
 }
 
-export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+export function AuthShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
   return (
     <div className="min-h-screen grid place-items-center px-4 py-12 relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute -top-32 -right-32 h-[400px] w-[400px] rounded-full bg-purple/30 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-neon-pink/20 blur-3xl" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -right-32 h-[400px] w-[400px] rounded-full bg-purple/30 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-neon-pink/20 blur-3xl"
+      />
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
