@@ -39,3 +39,4 @@ dist-ssr
 # Build output
 .output/
 package-lock.json
+.vercel
