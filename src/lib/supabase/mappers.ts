@@ -42,6 +42,8 @@ export function mapActivity(row: ActivityRow): Activity {
     confidence: row.confidence,
     lastVerified: row.last_verified,
     tags: row.tags ?? [],
+    metadata: row.metadata ?? {},
+    unlockCondition: row.unlock_condition ?? undefined,
   };
 }
 

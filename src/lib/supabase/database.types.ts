@@ -3,7 +3,9 @@
 //   supabase gen types typescript --project-id <ref> > src/lib/supabase/database.types.ts
 // Keeping it hand-written for now keeps the project buildable without the CLI.
 
-export type SubscriptionTier = "free" | "pro-monthly" | "pro-annual" | "founding";
+import type { JsonObject } from "../types";
+
+export type SubscriptionTier = "free" | "founding_pro" | "launch_pass";
 export type PlayStyleDb = "solo" | "small-crew" | "large-crew" | "mixed";
 export type SessionLengthDb = 30 | 60 | 90 | 120 | 180;
 export type RiskLevelDb = "low" | "medium" | "high";
@@ -14,7 +16,12 @@ export type ConfidenceDb =
   | "independently-verified"
   | "officially-confirmed";
 export type ItemCategoryDb =
-  "property" | "business" | "vehicle" | "weapon" | "equipment" | "upgrade";
+  | "property"
+  | "business"
+  | "vehicle"
+  | "weapon"
+  | "equipment"
+  | "upgrade";
 export type GoalTypeDb =
   | "earn-money"
   | "buy-property"
@@ -32,6 +39,11 @@ export interface Database {
           email: string;
           display_name: string;
           subscription_tier: SubscriptionTier;
+          founding_pro_slot_number: number | null;
+          subscription_started_at: string | null;
+          subscription_renews_at: string | null;
+          subscription_price_cents: number | null;
+          launch_pass_expires_at: string | null;
           is_admin: boolean;
           is_moderator: boolean;
           ai_conversations_used_this_week: number;
@@ -131,6 +143,8 @@ export interface Database {
           confidence: ConfidenceDb;
           last_verified: string;
           tags: string[];
+          metadata: JsonObject;
+          unlock_condition: JsonObject | null;
           created_at: string;
           updated_at: string;
         };
@@ -281,6 +295,31 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["community_submissions"]["Row"]>;
         Relationships: [];
       };
+      recommendations: {
+        Row: {
+          id: string;
+          user_id: string;
+          source: "planner" | "chat";
+          player_state_snapshot: Record<string, unknown>;
+          steps: Record<string, unknown>[];
+          calculation_basis: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["recommendations"]["Row"]> & {
+          user_id: string;
+          player_state_snapshot: Record<string, unknown>;
+          steps: Record<string, unknown>[];
+          calculation_basis: Record<string, unknown>;
+        };
+        Update: Partial<Database["public"]["Tables"]["recommendations"]["Row"]>;
+        Relationships: [];
+      };
+      founding_pro_slots: {
+        Row: { id: number; claimed: number; cap: number };
+        Insert: Partial<{ id: number; claimed: number; cap: number }> & { id: number };
+        Update: Partial<{ id: number; claimed: number; cap: number }>;
+        Relationships: [];
+      };
       admin_change_log: {
         Row: {
           id: string;
@@ -302,6 +341,13 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      claim_founding_slot: { Args: Record<string, never>; Returns: number | null };
+      purchase_tier: {
+        Args: { p_user_id: string; p_tier: string };
+        Returns: { status: string; slot?: number; expires_at?: string };
+      };
+      expire_launch_passes: { Args: Record<string, never>; Returns: number };
+    };
   };
 }

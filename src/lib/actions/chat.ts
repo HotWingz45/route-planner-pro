@@ -14,7 +14,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getServerSupabaseForUser, getServerSupabaseAdmin } from "../supabase/server";
-import { buildRoute } from "../engine";
+import { hasActiveAccess } from "../access";
+import { buildRoute, applyWeekly, effectiveTime } from "../engine";
 import { mapActivity, mapWeeklyModifier, buildPlayerProfile } from "../supabase/mappers";
 import type { Database } from "../supabase/database.types";
 import type { PlayerProfile, RiskLevel, SessionLength } from "../types";
@@ -68,7 +69,8 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     // configured, degrade gracefully instead of erroring so the rest of the
     // app stays fully usable on deployments without an AI budget.
     const aiConfigured =
-      !baseUrl.includes("api.anthropic.com") || (apiKey && apiKey.startsWith("sk-ant-") && !apiKey.includes("your-key"));
+      !baseUrl.includes("api.anthropic.com") ||
+      (apiKey && apiKey.startsWith("sk-ant-") && !apiKey.includes("your-key"));
     if (!aiConfigured) {
       return {
         reply:
@@ -94,10 +96,19 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     // 2. Enforce free-tier weekly AI conversation limit.
     const { data: profile, error: profileErr } = await admin
       .from("profiles")
-      .select("subscription_tier, ai_conversations_used_this_week, ai_conversations_reset_at")
+      .select(
+        "subscription_tier, launch_pass_expires_at, ai_conversations_used_this_week, ai_conversations_reset_at",
+      )
       .eq("id", userId)
       .single();
     if (profileErr) throw profileErr;
+
+    // Central access check — also treats a launch_pass that expired since the
+    // last nightly downgrade job as free tier.
+    const paidAccess = hasActiveAccess({
+      subscriptionTier: profile.subscription_tier,
+      launchPassExpiresAt: profile.launch_pass_expires_at,
+    });
 
     const now = new Date();
     let usedThisWeek = profile.ai_conversations_used_this_week;
@@ -111,7 +122,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
         })
         .eq("id", userId);
     }
-    if (profile.subscription_tier === "free" && usedThisWeek >= 3) {
+    if (!paidAccess && usedThisWeek >= 3) {
       return {
         reply:
           "You've used your 3 free AI conversations this week. Upgrade to Pro for unlimited AI route planning, or use the manual planner — it's still free and unlimited.",
@@ -326,6 +337,44 @@ export const sendChatMessage = createServerFn({ method: "POST" })
 
       if (activities.length > 0) {
         recommendation = buildRoute(updatedProfile, activities, weekly);
+
+        // Audited engine output: snapshot in, ranked steps out, plus the
+        // calculation basis so any recommendation can be explained later.
+        // Derived entirely from engine exports — engine.ts itself stays
+        // content-agnostic and untouched.
+        await admin.from("recommendations").insert({
+          user_id: userId,
+          source: "chat",
+          player_state_snapshot: updatedProfile as unknown as Record<string, unknown>,
+          steps: recommendation.steps.map((s) => ({
+            activityId: s.activity.id,
+            activityName: s.activity.name,
+            estimatedMinutes: s.estimatedMinutes,
+            estimatedPayoutMin: s.estimatedPayoutMin,
+            estimatedPayoutMax: s.estimatedPayoutMax,
+            rationale: s.rationale,
+          })) as unknown as Record<string, unknown>[],
+          calculation_basis: {
+            engineVersion: 1,
+            includeSetupTime: updatedProfile.includeSetupTime,
+            sessionLengthMinutes: updatedProfile.sessionLength,
+            activeWeeklyModifierIds: weekly.map((w) => w.id),
+            perStep: recommendation.steps.map((s) => {
+              const mult = applyWeekly(s.activity, weekly);
+              const minutes = effectiveTime(s.activity, updatedProfile.includeSetupTime);
+              return {
+                activityId: s.activity.id,
+                weeklyMultiplier: mult,
+                effectiveMinutes: minutes,
+                avgPayoutPerMinute: Math.round(
+                  (s.estimatedPayoutMin + s.estimatedPayoutMax) / 2 / Math.max(minutes, 1),
+                ),
+              };
+            }),
+            expectedPayout: recommendation.expectedPayout,
+            goalProgressAfter: recommendation.goalProgressAfter,
+          },
+        });
       }
     }
 
