@@ -3,7 +3,7 @@
 //   supabase gen types typescript --project-id <ref> > src/lib/supabase/database.types.ts
 // Keeping it hand-written for now keeps the project buildable without the CLI.
 
-export type SubscriptionTier = "free" | "pro-monthly" | "pro-annual" | "founding";
+export type SubscriptionTier = "free" | "founding_pro" | "launch_pass";
 export type PlayStyleDb = "solo" | "small-crew" | "large-crew" | "mixed";
 export type SessionLengthDb = 30 | 60 | 90 | 120 | 180;
 export type RiskLevelDb = "low" | "medium" | "high";
@@ -32,6 +32,11 @@ export interface Database {
           email: string;
           display_name: string;
           subscription_tier: SubscriptionTier;
+          founding_pro_slot_number: number | null;
+          subscription_started_at: string | null;
+          subscription_renews_at: string | null;
+          subscription_price_cents: number | null;
+          launch_pass_expires_at: string | null;
           is_admin: boolean;
           is_moderator: boolean;
           ai_conversations_used_this_week: number;
