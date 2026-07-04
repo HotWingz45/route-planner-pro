@@ -18,9 +18,7 @@ export function hasActiveAccess(account: AccountAccess, now: Date = new Date()):
     case "founding_pro":
       return true;
     case "launch_pass":
-      return (
-        account.launchPassExpiresAt !== null && new Date(account.launchPassExpiresAt) > now
-      );
+      return account.launchPassExpiresAt !== null && new Date(account.launchPassExpiresAt) > now;
     default:
       return false;
   }

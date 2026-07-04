@@ -19,3 +19,5 @@ applied first (`supabase migration repair`).
 | File | What it does |
 | --- | --- |
 | `20260704120000_accounts_and_tiers.sql` | New tier lineup (free / founding_pro / launch_pass), subscription columns on `profiles`, client write-lock on billing columns |
+| `20260704120100_founding_slots_and_purchases.sql` | Founding Pro 500-cap counter + atomic claim, `purchase_tier()` transaction, `expire_launch_passes()` + nightly pg_cron job |
+| `20260704120200_generic_progression_model.sql` | `metadata`/`unlock_condition` jsonb on catalog tables, `recommendations` audit table |

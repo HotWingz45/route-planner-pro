@@ -8,13 +8,7 @@ export type ConfidenceLevel =
   | "video-confirmed"
   | "independently-verified"
   | "officially-confirmed";
-export type ItemCategory =
-  | "property"
-  | "business"
-  | "vehicle"
-  | "weapon"
-  | "equipment"
-  | "upgrade";
+export type ItemCategory = "property" | "business" | "vehicle" | "weapon" | "equipment" | "upgrade";
 export type GoalType =
   | "earn-money"
   | "buy-property"
@@ -32,7 +26,7 @@ export interface User {
   createdAt: string;
 }
 
-export type SubscriptionTier = "free" | "pro-monthly" | "pro-annual" | "founding";
+export type SubscriptionTier = "free" | "founding_pro" | "launch_pass";
 
 export interface DataSource {
   name: string;
@@ -94,6 +88,16 @@ export interface Activity {
   confidence: ConfidenceLevel;
   lastVerified: string;
   tags: string[];
+  /** Game-specific facts the engine doesn't (yet) understand — pass-through jsonb. */
+  metadata?: JsonObject;
+  /** Non-item unlock gating (rank, story progress, …); null/undefined = always available. */
+  unlockCondition?: JsonObject;
+}
+
+/** JSON-safe value — required for anything that crosses a server-function boundary. */
+export type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+export interface JsonObject {
+  [key: string]: JsonValue;
 }
 
 export interface WeeklyModifier {

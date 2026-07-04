@@ -3,6 +3,8 @@
 //   supabase gen types typescript --project-id <ref> > src/lib/supabase/database.types.ts
 // Keeping it hand-written for now keeps the project buildable without the CLI.
 
+import type { JsonObject } from "../types";
+
 export type SubscriptionTier = "free" | "founding_pro" | "launch_pass";
 export type PlayStyleDb = "solo" | "small-crew" | "large-crew" | "mixed";
 export type SessionLengthDb = 30 | 60 | 90 | 120 | 180;
@@ -14,7 +16,12 @@ export type ConfidenceDb =
   | "independently-verified"
   | "officially-confirmed";
 export type ItemCategoryDb =
-  "property" | "business" | "vehicle" | "weapon" | "equipment" | "upgrade";
+  | "property"
+  | "business"
+  | "vehicle"
+  | "weapon"
+  | "equipment"
+  | "upgrade";
 export type GoalTypeDb =
   | "earn-money"
   | "buy-property"
@@ -136,6 +143,8 @@ export interface Database {
           confidence: ConfidenceDb;
           last_verified: string;
           tags: string[];
+          metadata: JsonObject;
+          unlock_condition: JsonObject | null;
           created_at: string;
           updated_at: string;
         };
@@ -284,6 +293,25 @@ export interface Database {
           payload: Record<string, unknown>;
         };
         Update: Partial<Database["public"]["Tables"]["community_submissions"]["Row"]>;
+        Relationships: [];
+      };
+      recommendations: {
+        Row: {
+          id: string;
+          user_id: string;
+          source: "planner" | "chat";
+          player_state_snapshot: Record<string, unknown>;
+          steps: Record<string, unknown>[];
+          calculation_basis: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["recommendations"]["Row"]> & {
+          user_id: string;
+          player_state_snapshot: Record<string, unknown>;
+          steps: Record<string, unknown>[];
+          calculation_basis: Record<string, unknown>;
+        };
+        Update: Partial<Database["public"]["Tables"]["recommendations"]["Row"]>;
         Relationships: [];
       };
       founding_pro_slots: {
